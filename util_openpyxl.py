@@ -1,4 +1,4 @@
-# Version 4/23/23
+# Version 4/25/23
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Border, Side
@@ -66,6 +66,12 @@ def clear_columns(ws, col1, col2):
             clear_cell(ws.cell(row=row, column=col))
     return ws
 
+""" 
+===============================================================================
+Range iterators
+===============================================================================
+"""
+
 def rng_iterator(ws, cell_home, cell_end):
     """
     Return row-wise iterator to iterate over cells in range
@@ -94,6 +100,12 @@ def rng_iterator_enum(ws, cell_home, cell_end):
         for j, col in enumerate(range(start_col, end_col+1), start=1):
             cell = ws.cell(row=row, column=col)
             yield (i, j, cell)
+
+""" 
+===============================================================================
+Functions for writing DataFrame values and setting dict for df cell locations
+===============================================================================
+"""
 
 def write_dataframe(ws, df, cell_home):
     """
@@ -161,7 +173,11 @@ def write_df_columns(ws, df, d_cells):
     for i, j, c in rng_iterator_enum(ws, d_cells['cell_home_cols'], d_cells['cell_end_cols']):
         c.value = list(df.columns)[j-1]  
     return ws
-
+""" 
+===============================================================================
+Functions for setting borders
+===============================================================================
+"""
 def set_openpyxl_border_obj(style_border):
     """
     Create a border style based on style_border='thick', 'thin' etc.
@@ -174,6 +190,10 @@ def set_openpyxl_border_obj(style_border):
                   bottom=Side(style=style_border))
 
 def set_range_border(ws, cell_home, cell_end, style_border):
+    """
+    Set borders for an Excel range defined by ws cell_home and cell_end
+    JDL 4/21/23
+    """
     #Create a Border object for style_border
     border_obj = set_openpyxl_border_obj(style_border)
     
@@ -182,9 +202,13 @@ def set_range_border(ws, cell_home, cell_end, style_border):
         c.border = border_obj
         
 def set_df_borders(ws, df, cell_home):
+    """
+    Set borders for an Excel range containing a DataFrame
+    JDL 4/21/23
+    """
     d_cells = set_df_openpyxl_cell_locns(ws, df, cell_home)
     ws = set_df_data_borders(ws, d_cells, 'thin')
-    ws = set_df_index_borders(ws, d_cells, 'thick')
+    ws = set_df_index_borders(ws, d_cells, 'thin')
     ws = set_df_cols_borders(ws, d_cells, 'thick')
     return ws
 
@@ -206,3 +230,53 @@ def set_df_cols_borders(ws, d_cells, style_border):
     set_range_border(ws, d_cells['cell_home_cols'], d_cells['cell_end_cols'], style_border)
     return ws
 
+""" 
+===============================================================================
+Functions for setting built-in styles for a range or a DataFrame
+===============================================================================
+"""
+
+def set_range_builtin_style(ws, cell_home, cell_end, style_builtin):
+    """
+    Apply the builtin style to each cell in the range
+    JDL 4/25/23
+    """
+    for c in rng_iterator(ws, cell_home, cell_end):
+        c.style = style_builtin
+        
+def set_df_builtin_styles(ws, df, cell_home, style_data=None, style_idx=None, style_cols=None):
+    """
+    Set built-in styles for Excel range with a DataFrame
+    JDL 4/25/23
+    """
+    d_cells = set_df_openpyxl_cell_locns(ws, df, cell_home)
+    if not style_data is None: ws = set_df_data_builtin_styles(ws, d_cells, style_data)
+    if not style_idx is None: ws = set_df_index_builtin_styles(ws, d_cells, style_idx)
+    if not style_cols is None: ws = set_df_cols_builtin_styles(ws, d_cells, style_cols)
+    return ws
+
+def set_df_data_builtin_styles(ws, d_cells, style_data):
+    """
+    Set built-in Excel style for df data values
+    """
+    set_range_builtin_style(ws, d_cells['cell_home_data'], d_cells['cell_end_data'], style_data)
+    return ws
+
+def set_df_index_builtin_styles(ws, d_cells, style_idx):
+    """
+    Set built-in Excel style for df index values
+    """    
+    set_range_builtin_style(ws, d_cells['cell_home_idx'], d_cells['cell_end_idx'], style_idx)
+    return ws
+
+def set_df_cols_builtin_styles(ws, d_cells, style_cols):
+    """
+    Set built-in Excel style for df column values and index name cell
+    """    
+    set_range_builtin_style(ws, d_cells['cell_home_cols'], d_cells['cell_end_cols'], style_cols)
+    
+    #Set index name cell same style as data columns
+    row = d_cells['cell_home_idx'].row - 1
+    col = d_cells['cell_home_idx'].column
+    set_range_builtin_style(ws, ws.cell(row, col), ws.cell(row, col), style_cols)
+    return ws
