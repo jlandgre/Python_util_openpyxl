@@ -1,7 +1,9 @@
-# Version 4/25/23
+# Version 4/26/23
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Border, Side
+import openpyxl.utils as pyxl_util
+
 
 def open_wb(sfile):
     """
@@ -66,6 +68,15 @@ def clear_columns(ws, col1, col2):
             clear_cell(ws.cell(row=row, column=col))
     return ws
 
+def find_string_in_row(ws, irow, sfind):
+    """
+    Find cell with specified string in specified row
+    JDL 4/25/23
+    """
+    for c in ws[irow]:
+        if c.value == sfind:
+            return c
+    return None
 """ 
 ===============================================================================
 Range iterators
@@ -279,4 +290,20 @@ def set_df_cols_builtin_styles(ws, d_cells, style_cols):
     row = d_cells['cell_home_idx'].row - 1
     col = d_cells['cell_home_idx'].column
     set_range_builtin_style(ws, ws.cell(row, col), ws.cell(row, col), style_cols)
+    return ws
+
+""" 
+===============================================================================
+Functions for setting column widths in an openpyxl ws object
+===============================================================================
+"""
+
+def set_range_column_widths(ws, col_start, col_end, width):
+    """
+    Set a contiguous range of columns (e.g. df.columns) to a specified width
+    JDL 4/25/23
+    """
+    for col in range(col_start, col_end+1):
+        letter = pyxl_util.get_column_letter(col)
+        ws.column_dimensions[letter].width = width + 0.6
     return ws
