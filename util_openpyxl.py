@@ -1,9 +1,8 @@
-# Version 4/26/23
+# Version 4/26/23 14:00
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Border, Side
 import openpyxl.utils as pyxl_util
-
 
 def open_wb(sfile):
     """
@@ -74,9 +73,45 @@ def find_string_in_row(ws, irow, sfind):
     JDL 4/25/23
     """
     for c in ws[irow]:
-        if c.value == sfind:
-            return c
+        if c.value == sfind: return c
     return None
+
+def find_string_in_col(ws, icol, sfind):
+    """
+    Find cell with specified string in specified column
+    JDL 4/25/23
+    """
+    for col in ws.iter_cols(min_col=icol, max_col=icol):
+        for c in col: 
+            if c.value == sfind: return c
+    return None
+
+def write_lst_to_rng(ws, cell_home, lstvals, direction='row'):
+    """
+    Write list of values to cells in specified row or column on openpyxl ws
+    direction: either 'row' or 'col'
+    JDL 4/25/23
+    """
+    for i, val in enumerate(lstvals):
+        if direction == 'row':
+            ws.cell(row=cell_home.row, column=cell_home.column+i, value=val)
+        elif direction == 'col':
+            ws.cell(row=cell_home.row+i, column=cell_home.column, value=val)
+    return ws
+
+def toggle_sheet_visibility(wb, sht, IsHide=True):
+    """
+    Toggle the visibility of a sheet in an openpyxl workbook.
+    JDL 5/4/23
+    wb: the openpyxl Workbook object
+    sht: [String] name of sheet to toggle visibility
+    IsHide: [Boolean] toggle to hide or unhide (default is hide)
+    """
+    ws = wb[sht]
+    if IsHide:
+        ws.sheet_state = 'hidden'
+    else:
+        ws.sheet_state = 'visible'
 """ 
 ===============================================================================
 Range iterators
@@ -280,16 +315,17 @@ def set_df_index_builtin_styles(ws, d_cells, style_idx):
     set_range_builtin_style(ws, d_cells['cell_home_idx'], d_cells['cell_end_idx'], style_idx)
     return ws
 
-def set_df_cols_builtin_styles(ws, d_cells, style_cols):
+def set_df_cols_builtin_styles(ws, d_cells, style_cols, fmt_idx_name=True):
     """
     Set built-in Excel style for df column values and index name cell
     """    
     set_range_builtin_style(ws, d_cells['cell_home_cols'], d_cells['cell_end_cols'], style_cols)
     
     #Set index name cell same style as data columns
-    row = d_cells['cell_home_idx'].row - 1
-    col = d_cells['cell_home_idx'].column
-    set_range_builtin_style(ws, ws.cell(row, col), ws.cell(row, col), style_cols)
+    if fmt_idx_name:
+        row = d_cells['cell_home_idx'].row - 1
+        col = d_cells['cell_home_idx'].column
+        set_range_builtin_style(ws, ws.cell(row, col), ws.cell(row, col), style_cols)
     return ws
 
 """ 
