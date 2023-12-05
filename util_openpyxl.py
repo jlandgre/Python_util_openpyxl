@@ -343,3 +343,25 @@ def set_range_column_widths(ws, col_start, col_end, width):
         letter = pyxl_util.get_column_letter(col)
         ws.column_dimensions[letter].width = width + 0.6
     return ws
+
+""" 
+===============================================================================
+Functions for setting number formats in openpyxl ws object
+===============================================================================
+"""
+def set_range_num_format(ws, cell_home, cell_end, 
+                         num_fmt='General', num_fmt_zeros='General'):
+    """
+    Apply Excel number format to each cell in a range
+    JDL 12/5/23
+    """
+    for c in rng_iterator(ws, cell_home, cell_end):
+        c.number_format = num_fmt
+        if c.value == 0: c.number_format = num_fmt_zeros
+
+def set_cell_num_format(cell, num_format):
+    """
+    Set Excel cell number format
+    JDL 12/5/23
+    """
+    cell.number_format = num_format
