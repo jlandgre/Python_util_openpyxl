@@ -1,7 +1,7 @@
 # Version 4/26/23 14:00
 import pandas as pd
 import openpyxl
-from openpyxl.styles import Border, Side
+from openpyxl.styles import Border, Side, Alignment
 import openpyxl.utils as pyxl_util
 
 def open_wb(sfile):
@@ -344,6 +344,46 @@ def set_range_column_widths(ws, col_start, col_end, width):
         ws.column_dimensions[letter].width = width + 0.6
     return ws
 
+"""
+===============================================================================
+Functions for setting cell alignment properties
+===============================================================================
+"""
+
+def set_range_alignment(ws, cell_home, cell_end, d_align):
+    """
+    Set alignment for an Excel range defined by ws cell_home and cell_end
+    JDL 6/29/23
+    """
+    for c in rng_iterator(ws, cell_home, cell_end):
+        align = Alignment()
+        if 'horizontal' in d_align: align.horizontal = d_align['horizontal']
+        if 'wrap_text' in d_align: align.wrap_text = d_align['wrap_text']
+        c.alignment = align                                        
+        
+def set_df_data_align(ws, d_cells, d_align):
+    """
+    Set alignment df data values
+    """
+    set_range_alignment(ws, d_cells['cell_home_data'], d_cells['cell_end_data'], d_align)
+    return ws
+
+def set_df_index_align(ws, d_cells, d_align):
+    """
+    Set alignment df index values and name
+    """
+    set_range_alignment(ws, d_cells['cell_home_idx'], d_cells['cell_end_idx'], d_align)
+    row = d_cells['cell_home_idx'].row - 1
+    col = d_cells['cell_home_idx'].column
+    set_range_alignment(ws, ws.cell(row, col), ws.cell(row, col), d_align)
+    return ws
+
+def set_df_cols_align(ws, d_cells, d_align):
+    """
+    Set alignment df column values
+    """
+    set_range_alignment(ws, d_cells['cell_home_cols'], d_cells['cell_end_cols'], d_align)
+    return ws
 """ 
 ===============================================================================
 Functions for setting number formats in openpyxl ws object
