@@ -171,7 +171,7 @@ def set_df_openpyxl_cell_locns(ws, df, cell_home):
     """
     Set ws.cells for ranges of data, index and columns
     cell_home argument is ws.cell for top left data cell in Excel
-    JDL 4/23/23
+    JDL 4/23/23; Add n_col_lvls 3/11/24
     """
     row, col = row_col(cell_home)
     d_cells = {'cell_home_data':cell_home}
@@ -179,9 +179,37 @@ def set_df_openpyxl_cell_locns(ws, df, cell_home):
     d_cells['cell_home_idx'] = ws.cell(row, col - 1)
     d_cells['cell_end_idx'] = ws.cell(row + df.index.size - 1, col - 1)
     d_cells['cell_home_cols'] = ws.cell(row - 1, col)
-    d_cells['cell_end_cols'] = ws.cell(row - 1, col + df.columns.size - 1)    
+    d_cells['cell_end_cols'] = ws.cell(row - 1, col + df.columns.size - 1)
+
+    #Added 3/11/24 for multiindex cols - should refactor to just used cell_home_cols
+    d_cells['n_col_lvls'] = set_num_col_levels(df)
+    d_cells['cell_cols_rng_begin'] = set_cols_rng_begin(ws, d_cells)
     return d_cells
 
+def set_num_col_levels(df):
+    """
+    return number of column levels for single or multiindex columns
+    JDL 3/11/24
+    """
+    return len(df.columns.levels) if isinstance(df.columns, pd.MultiIndex) else 1
+
+def offset_cell(ws, cell, irows=0, icols=0):
+    """
+    Return a cell that is irows below the specified cell
+    JDL 3/11/24
+    """
+    return ws.cell(row=cell.row + irows, column=cell.column + icols)
+
+def set_cols_rng_begin(ws, d_cells):
+    """
+    Return column values end cell for single or multiindex columns
+    JDL 3/11/24
+    """
+    if d_cells['n_col_lvls'] == 0 :
+        return d_cells['cell_home_cols']
+    else:
+        return offset_cell(ws, d_cells['cell_home_cols'], irows= - d_cells['n_col_lvls'] + 1)
+    
 def row_col(c):
     """
     return openpyxl ws.cell row and column tuple
@@ -219,6 +247,143 @@ def write_df_columns(ws, df, d_cells):
     for i, j, c in rng_iterator_enum(ws, d_cells['cell_home_cols'], d_cells['cell_end_cols']):
         c.value = list(df.columns)[j-1]  
     return ws
+
+""" 
+===============================================================================
+Functions for writing DataFrames with multiindex columns
+Temp - refactor into basic functions for writing dataframes
+===============================================================================
+"""
+
+def write_dataframe_multi_cols(ws, df, cell_home):
+    """
+    Write a DataFrame with single or multiindex cols to a specific openpyxl 
+    cell on an Excel ws cell_home argument is ws.cell for top left data cell in Excel
+    (temporary - refactor write_dataframe for this to be base approach)
+    JDL 3/11/23
+    """
+    #Create dict of cell locations for df elements
+    d_cells = set_df_openpyxl_cell_locns(ws, df, cell_home)
+    
+    #Write data, index and column values
+    ws = write_df_data(ws, df, d_cells)
+    ws = write_df_index(ws, df, d_cells)
+    ws = write_df_columns_multi(ws, df, d_cells, IsMergeMatching=True)
+    return ws 
+
+def write_df_columns_multi(ws, df, d_cells, IsMergeMatching=False):
+    """
+    Write DataFrame's column values to row above to first data row (works for multiindex cols)
+    JDL 3/11/24
+    """    
+    n_lvls = d_cells['n_col_lvls']
+    for i, j, c in rng_iterator_enum(ws, d_cells['cell_home_cols'], d_cells['cell_end_cols']):
+        if n_lvls == 1:
+            c.value = list(df.columns)[j-1]
+        else:
+            #column label tuple
+            column = df.columns[j-1]
+            for lvl in range(1, n_lvls+1): 
+                offset_cell(ws, c, -lvl+1).value = column[n_lvls - lvl]
+
+                #n_lvls = 3
+                #lvl = 1, offset(0), column[2] --> offset(-lvl + 1), column(n_lvls - lvl)
+                #lvl = 2, offset(-1), column[1]
+                #lvl = 3, offset(-2), column[0]
+
+                #n_lvls = 2
+                #lvl = 1, offset(0), column[1] --> offset(-lvl + 1), column(n_lvls - lvl)
+                #lvl = 2, offset(-1), column[1]
+    if IsMergeMatching: merge_matching(ws, d_cells)
+    return ws
+
+def merge_matching(ws, d_cells):
+    """
+    Merge cells with matching, adjacent multiindex column labels
+    JDL 3/11/24
+    """
+
+    #Set local names for column limits
+    col_home, col_end = d_cells['cell_home_cols'].column, d_cells['cell_end_cols'].column
+
+    for lvl in range(1, d_cells['n_col_lvls']+1):
+        
+        #Set row number based on columns home row and iteration counter
+        row = d_cells['cell_home_cols'].row - lvl + 1
+
+        #Initialize block of values to check and iterate
+        prev_value, start_col = None, 1
+        for col in range(col_home, col_end + 1):
+            cell_value = ws.cell(row, col).value
+
+            #If current cell value is same as the previous, continue (potential merge)
+            if cell_value == prev_value:
+                continue
+
+            #check for merge (if more than one cell) and re-initialize
+            else:
+                if col - start_col > 1: merge_cell_sequence(ws, row, start_col, row, col-1)
+                start_col, prev_value = col, cell_value
+
+        #Check for sequence at the end of range
+        if col_end - start_col > 0: merge_cell_sequence(ws, row, start_col, row, col_end)
+
+def merge_cell_sequence(ws, row1, col1, row2, col2):
+    """
+    Merge specified range
+    JDL 3/11/24
+    """
+    ws.merge_cells(start_row=row1, start_column=col1, end_row=row2, end_column=col2)
+
+"""
+Formatting multiindex columns
+"""
+def set_df_borders_multi(ws, df, cell_home):
+    """
+    Set borders for an Excel range containing a DataFrame
+    (temp version to also handle multiindex columns)
+    JDL 3/11/24
+    """
+    d_cells = set_df_openpyxl_cell_locns(ws, df, cell_home)
+    ws = set_df_data_borders(ws, d_cells, 'thin')
+    ws = set_df_index_borders(ws, d_cells, 'thin')
+    ws = set_df_cols_borders_multi(ws, d_cells, 'thin')
+    return ws
+
+def set_df_cols_borders_multi(ws, d_cells, style_border):
+    """
+    """
+    cell_rng_begin = d_cells['cell_cols_rng_begin']
+    set_range_border(ws, cell_rng_begin, d_cells['cell_end_cols'], style_border)
+    return ws
+
+def set_df_builtin_styles_multi(ws, df, cell_home, style_data=None, style_idx=None, style_cols=None):
+    """
+    Set built-in styles for Excel range with a DataFrame
+    (temp version to also handle multiindex columns)
+    JDL 3/11/24
+    """
+    d_cells = set_df_openpyxl_cell_locns(ws, df, cell_home)
+    if not style_data is None: ws = set_df_data_builtin_styles(ws, d_cells, style_data)
+    if not style_idx is None: ws = set_df_index_builtin_styles(ws, d_cells, style_idx)
+    if not style_cols is None: ws = set_df_cols_builtin_styles_multi(ws, d_cells, style_cols)
+    return ws
+
+def set_df_cols_builtin_styles_multi(ws, d_cells, style_cols):
+    """
+    Set built-in Excel style for df column values and index name cell
+    JDL 3/11/24 - should refactor to consolidate with set_df_cols_builtin_styles
+    """
+    cell_rng_begin = d_cells['cell_cols_rng_begin']
+    set_range_builtin_style(ws, cell_rng_begin, d_cells['cell_end_cols'], style_cols)
+    
+    #Set index name cell same style as data columns
+    row_start = d_cells['cell_home_idx'].row - d_cells['n_col_lvls']
+    row_end = d_cells['cell_home_idx'].row - 1
+    col = d_cells['cell_home_idx'].column
+    set_range_builtin_style(ws, ws.cell(row_start, col), ws.cell(row_end, col), style_cols)
+    return ws
+
 """ 
 ===============================================================================
 Functions for setting borders
