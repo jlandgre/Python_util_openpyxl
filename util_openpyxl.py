@@ -1,4 +1,4 @@
-# Version 4/26/23 14:00
+# Version 3/11/24 - Additional changes for multiindex columns
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Border, Side, Alignment
@@ -184,6 +184,7 @@ def set_df_openpyxl_cell_locns(ws, df, cell_home):
     #Added 3/11/24 for multiindex cols - should refactor to just used cell_home_cols
     d_cells['n_col_lvls'] = set_num_col_levels(df)
     d_cells['cell_cols_rng_begin'] = set_cols_rng_begin(ws, d_cells)
+    d_cells['cell_cols_rng_end'] = d_cells['cell_end_cols']
     return d_cells
 
 def set_num_col_levels(df):
@@ -209,7 +210,17 @@ def set_cols_rng_begin(ws, d_cells):
         return d_cells['cell_home_cols']
     else:
         return offset_cell(ws, d_cells['cell_home_cols'], irows= - d_cells['n_col_lvls'] + 1)
-    
+
+def set_cols_rng_end(ws, d_cells):
+    """
+    Return column values end cell for single or multiindex columns
+    JDL 3/11/24
+    """
+    if d_cells['n_col_lvls'] == 0 :
+        return d_cells['cell_end_cols']
+    else:
+        return offset_cell(ws, d_cells['cell_end_cols'], irows=-1)
+
 def row_col(c):
     """
     return openpyxl ws.cell row and column tuple
@@ -254,7 +265,6 @@ Functions for writing DataFrames with multiindex columns
 Temp - refactor into basic functions for writing dataframes
 ===============================================================================
 """
-
 def write_dataframe_multi_cols(ws, df, cell_home):
     """
     Write a DataFrame with single or multiindex cols to a specific openpyxl 
@@ -384,6 +394,17 @@ def set_df_cols_builtin_styles_multi(ws, d_cells, style_cols):
     set_range_builtin_style(ws, ws.cell(row_start, col), ws.cell(row_end, col), style_cols)
     return ws
 
+def set_df_cols_align_multi(ws, d_cells, d_align):
+    """
+    Set alignment df column values
+    """
+    row_start = d_cells['cell_home_idx'].row - d_cells['n_col_lvls']
+    row_end = d_cells['cell_home_idx'].row - 1
+    cell_start = ws.cell(row_start, d_cells['cell_home_cols'].column)
+    cell_end = ws.cell(row_end, d_cells['cell_end_cols'].column)
+
+    set_range_alignment(ws, cell_start, cell_end, d_align)
+    return ws
 """ 
 ===============================================================================
 Functions for setting borders
