@@ -1,4 +1,4 @@
-# Version 3/11/24 - Additional changes for multiindex columns
+# Version 6/18/24 Add autofit_column_width
 import pandas as pd
 import openpyxl
 from openpyxl.styles import Border, Side, Alignment
@@ -405,6 +405,25 @@ def set_df_cols_align_multi(ws, d_cells, d_align):
 
     set_range_alignment(ws, cell_start, cell_end, d_align)
     return ws
+
+def autofit_column_width(ws, col):
+    """
+    Autofit the width of a column in an openpyxl worksheet.
+    col is column number
+    JDL 6/18/24   
+    """
+    col_letter = pyxl_util.get_column_letter(col)
+    column = ws[col_letter]
+
+    #Get the max length of any cell value in the column
+    max_length = 0
+    for cell in column:
+        try:
+            if len(str(cell.value)) > max_length: max_length = len(cell.value)
+        except:
+            pass
+    adjusted_width = (max_length + 2)
+    ws.column_dimensions[col_letter].width = adjusted_width
 """ 
 ===============================================================================
 Functions for setting borders
